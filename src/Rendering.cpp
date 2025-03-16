@@ -657,13 +657,13 @@ namespace Fwog
   void CopyTexture(const CopyTextureInfo& copy)
   {
     glCopyImageSubData(detail::GetHandle(copy.source),
-                       GL_TEXTURE,
+                       detail::ImageTypeToGL(copy.source.GetCreateInfo().imageType),
                        copy.sourceLevel,
                        copy.sourceOffset.x,
                        copy.sourceOffset.y,
                        copy.sourceOffset.z,
                        copy.target.Handle(),
-                       GL_TEXTURE,
+                       detail::ImageTypeToGL(copy.target.GetCreateInfo().imageType),
                        copy.targetLevel,
                        copy.targetOffset.x,
                        copy.targetOffset.y,
@@ -1321,6 +1321,27 @@ namespace Fwog
       const auto groupCount = (invocationCount + workgroupSize - 1) / workgroupSize;
 
       glDispatchCompute(groupCount.width, groupCount.height, groupCount.depth);
+    }
+
+    void DispatchInvocations(const Texture& texture, uint32_t lod)
+    {
+      const auto imageType = texture.GetCreateInfo().imageType;
+      auto extent = texture.Extent();
+      extent.width >>= lod;
+      extent.height >>= lod;
+      if (imageType == ImageType::TEX_CUBEMAP || imageType == ImageType::TEX_CUBEMAP_ARRAY)
+      {
+        extent.depth = 6 * texture.GetCreateInfo().arrayLayers;
+      }
+      else if (imageType == ImageType::TEX_3D)
+      {
+        extent.depth >>= lod;
+      }
+      else // texture is either an array with >= 1 layers or non-array with 1 layer.
+      {
+        extent.depth = texture.GetCreateInfo().arrayLayers;
+      }
+      DispatchInvocations(extent);
     }
 
     void DispatchIndirect(const Buffer& commandBuffer, uint64_t commandBufferOffset)
